@@ -1,8 +1,8 @@
-name: ${project.name}
-version: ${project.version}
-author: totemo
-authors: [totemo, bermudalocket]
-description: ${project.description}
+name: ${CrystalZero}
+version: ${1.19.3}
+author: pajama
+authors: [pajama, fxcilitites, totemo, bermudalocket]
+description: ${stop players from placing crystals}
 website: ${project.url}
 main: nu.nerd.safecrystals.SafeCrystals
 api-version: 1.15
