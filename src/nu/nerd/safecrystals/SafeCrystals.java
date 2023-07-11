@@ -1,30 +1,28 @@
-package nu.nerd.safecrystals;
+package nu.nerd.safecrystals
 
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World.Environment;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Player;
-import org.bukkit.entity.Projectile;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityExplodeEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.Bukkit
+import org.bukkit.Location
+import org.bukkit.Material
+import org.bukkit.World.Environment
+import org.bukkit.block.Block
+import org.bukkit.block.BlockFace
+import org.bukkit.entity.Entity
+import org.bukkit.entity.EntityType
+import org.bukkit.entity.Player
+import org.bukkit.entity.Projectile
+import org.bukkit.event.EventHandler
+import org.bukkit.event.Listener
+import org.bukkit.event.block.Action
+import org.bukkit.event.entity.EntityDamageByEntityEvent
+import org.bukkit.event.entity.EntityExplodeEvent
+import org.bukkit.event.player.PlayerInteractEvent
+import org.bukkit.inventory.ItemStack
+import org.bukkit.plugin.java.JavaPlugin
+import com.sk89q.worldedit.bukkit.BukkitAdapter
+import com.sk89q.worldguard.LocalPlayer
+import com.sk89q.worldguard.WorldGuard
+import com.sk89q.worldguard.bukkit.WorldGuardPlugin
 
-import com.sk89q.worldedit.bukkit.BukkitAdapter;
-import com.sk89q.worldguard.LocalPlayer;
-import com.sk89q.worldguard.WorldGuard;
-import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
-
-// ----------------------------------------------------------------------------
 /**
  * Prevent Ender Crystals from exploding and breaking blocks or damaging
  * entities.
@@ -35,45 +33,47 @@ import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
  * WorldGuard build permission is checked before allowing a player to place an
  * Ender Crystal in a region.
  */
-public class SafeCrystals extends JavaPlugin implements Listener {
+class SafeCrystals : JavaPlugin(), Listener {
     /**
      * Singleton-like reference to this plugin.
      */
-    public static SafeCrystals PLUGIN;
+    companion object {
+        lateinit var PLUGIN: SafeCrystals
+    }
 
     /**
      * Configuration instance.
      */
-    public static Configuration CONFIG = new Configuration();
-
-    // ------------------------------------------------------------------------
-    /**
-     * @see org.bukkit.plugin.java.JavaPlugin#onEnable()
-     */
-    @Override
-    public void onEnable() {
-        PLUGIN = this;
-        saveDefaultConfig();
-        CONFIG.reload();
-
-        _worldGuard = (WorldGuardPlugin) getServer().getPluginManager().getPlugin("WorldGuard");
-        Bukkit.getPluginManager().registerEvents(this, this);
+    companion object {
+        val CONFIG = Configuration()
     }
 
-    // ------------------------------------------------------------------------
+    private lateinit var worldGuard: WorldGuardPlugin
+
+    /**
+     * @see org.bukkit.plugin.java.JavaPlugin.onEnable
+     */
+    override fun onEnable() {
+        PLUGIN = this
+        saveDefaultConfig()
+        CONFIG.reload()
+
+        worldGuard = server.pluginManager.getPlugin("WorldGuard") as WorldGuardPlugin
+        Bukkit.getPluginManager().registerEvents(this, this)
+    }
+
     /**
      * Prevent Ender Crystals from exploding, except in the case of those on
      * bedrock in the end.
      */
     @EventHandler(ignoreCancelled = true)
-    public void onEntityExplode(EntityExplodeEvent event) {
-        Entity entity = event.getEntity();
-        if (entity.getType() == EntityType.ENDER_CRYSTAL && !isDragonFightCrystal(entity.getLocation())) {
-            event.setCancelled(true);
+    fun onEntityExplode(event: EntityExplodeEvent) {
+        val entity = event.entity
+        if (entity.type == EntityType.ENDER_CRYSTAL && !isDragonFightCrystal(entity.location)) {
+            event.isCancelled = true
         }
     }
 
-    // ------------------------------------------------------------------------
     /**
      * Prevent Ender Crystals from being damaged by other entities.
      *
@@ -81,28 +81,27 @@ public class SafeCrystals extends JavaPlugin implements Listener {
      * Projectiles are handled the same as the player who shot them.
      */
     @EventHandler(ignoreCancelled = true)
-    public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
-        Entity entity = event.getEntity();
-        if (entity.getType() == EntityType.ENDER_CRYSTAL) {
-            if (isDragonFightCrystal(entity.getLocation())) {
-                // Vanilla handlilng.
-                return;
+    fun onEntityDamageByEntity(event: EntityDamageByEntityEvent) {
+        val entity = event.entity
+        if (entity.type == EntityType.ENDER_CRYSTAL) {
+            if (isDragonFightCrystal(entity.location)) {
+                // Vanilla handling.
+                return
             }
 
-            event.setCancelled(true);
+            event.isCancelled = true
 
-            if (event.getDamager() instanceof Player) {
-                tryBreakEnderCrystal(entity, (Player) event.getDamager());
-            } else if (event.getDamager() instanceof Projectile) {
-                Projectile projectile = (Projectile) event.getDamager();
-                if (projectile.getShooter() instanceof Player) {
-                    tryBreakEnderCrystal(entity, (Player) projectile.getShooter());
+            if (event.damager is Player) {
+                tryBreakEnderCrystal(entity, event.damager as Player)
+            } else if (event.damager is Projectile) {
+                val projectile = event.damager as Projectile
+                if (projectile.shooter is Player) {
+                    tryBreakEnderCrystal(entity, projectile.shooter as Player)
                 }
             }
         }
     }
 
-    // ------------------------------------------------------------------------
     /**
      * Check that a player can build before placing an Ender Crystal.
      *
@@ -111,40 +110,38 @@ public class SafeCrystals extends JavaPlugin implements Listener {
      * always check build permissions <i>above</i> the clicked block.
      */
     @EventHandler(ignoreCancelled = true)
-    public void onPlayerInteract(PlayerInteractEvent event) {
-        if (event.getMaterial() == Material.END_CRYSTAL && event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-            Block destination = event.getClickedBlock().getRelative(BlockFace.UP);
-            if (!canBuild(event.getPlayer(), destination.getLocation())) {
-                event.setCancelled(true);
+    fun onPlayerInteract(event: PlayerInteractEvent) {
+        if (event.material == Material.END_CRYSTAL && event.action == Action.RIGHT_CLICK_BLOCK) {
+            val destination = event.clickedBlock?.getRelative(BlockFace.UP)
+            if (destination != null && !canBuild(event.player, destination.location)) {
+                event.isCancelled = true
             }
         }
     }
 
-    // ------------------------------------------------------------------------
     /**
-     * Handle a specific player's attempt to can break an Ender Crystal.
+     * Handle a specific player's attempt to break an Ender Crystal.
      *
      * @param crystal the crystal.
      * @param player the player.
      */
-    protected void tryBreakEnderCrystal(Entity crystal, Player player) {
-        Location loc = crystal.getLocation();
+    protected fun tryBreakEnderCrystal(crystal: Entity, player: Player) {
+        val loc = crystal.location
         if (canBuild(player, loc)) {
-            crystal.remove();
-            String suppressed;
+            crystal.remove()
+            val suppressed: String
             if (isDragonSpawningCrystal(loc)) {
-                suppressed = " - drop suppressed because dragon may spawn";
+                suppressed = " - drop suppressed because dragon may spawn"
             } else {
-                loc.getWorld().dropItemNaturally(loc, new ItemStack(Material.END_CRYSTAL));
-                suppressed = "";
+                loc.world?.dropItemNaturally(loc, ItemStack(Material.END_CRYSTAL))
+                suppressed = ""
             }
-            getLogger().info(player.getName() + " broke an Ender Crystal at " +
-                             loc.getWorld().getName() + ", " +
-                             loc.getBlockX() + ", " + loc.getBlockY() + ", " + loc.getBlockZ() + suppressed);
+            logger.info(player.name + " broke an Ender Crystal at " +
+                    loc.world?.name + ", " +
+                    loc.blockX + ", " + loc.blockY + ", " + loc.blockZ + suppressed)
         }
     }
 
-    // ------------------------------------------------------------------------
     /**
      * Return true if the crystal is in a position that can be used to summon
      * the dragon.
@@ -164,12 +161,11 @@ public class SafeCrystals extends JavaPlugin implements Listener {
      * @return true if the crystal is in a position that can be used to summon
      *         the dragon.
      */
-    protected boolean isDragonSpawningCrystal(Location loc) {
-        return loc.getWorld().equals(CONFIG.END_PORTAL_LOCATION.getWorld()) &&
-               loc.distance(CONFIG.END_PORTAL_LOCATION) < CONFIG.END_PORTAL_RADIUS;
+    protected fun isDragonSpawningCrystal(loc: Location): Boolean {
+        return loc.world?.equals(CONFIG.END_PORTAL_LOCATION?.world) == true &&
+                loc.distance(CONFIG.END_PORTAL_LOCATION) < CONFIG.END_PORTAL_RADIUS
     }
 
-    // ------------------------------------------------------------------------
     /**
      * Returns true if the given player can build at the given location.
      * Effectively replaces the lost functionality of WorldGuardPlugin#canBuild.
@@ -178,32 +174,25 @@ public class SafeCrystals extends JavaPlugin implements Listener {
      * @param location the location.
      * @return true if the given player can build at the given location.
      */
-    private boolean canBuild(Player player, Location location) {
-        com.sk89q.worldedit.util.Location wrappedLocation = BukkitAdapter.adapt(location);
-        LocalPlayer localPlayer = _worldGuard.wrapPlayer(player);
-        return WorldGuard.getInstance().getPlatform().getRegionContainer().createQuery().testBuild(wrappedLocation, localPlayer);
+    private fun canBuild(player: Player, location: Location): Boolean {
+        val wrappedLocation = BukkitAdapter.adapt(location)
+        val localPlayer = worldGuard.wrapPlayer(player)
+        return WorldGuard.getInstance().platform.regionContainer.createQuery().testBuild(wrappedLocation, localPlayer)
     }
 
-    // ------------------------------------------------------------------------
     /**
      * Return true if the crystal is associated with the dragon fight.
-     * 
+     *
      * For this purpose, any crystal on bedrock in the end is assumed to be part
      * of the dragon fight. These crystals are not protected (they will behave
      * as in vanilla).
-     * 
+     *
      * @param loc the location of the end crystal.
      * @return true if the crystal is associated with the dragon fight.
      */
-    private static boolean isDragonFightCrystal(Location loc) {
-        Block blockUnder = loc.getBlock().getRelative(0, -1, 0);
-        return loc.getWorld().getEnvironment() == Environment.THE_END &&
-               blockUnder != null && blockUnder.getType() == Material.BEDROCK;
+    private fun isDragonFightCrystal(loc: Location): Boolean {
+        val blockUnder = loc.block.getRelative(0, -1, 0)
+        return loc.world?.environment == Environment.THE_END &&
+                blockUnder?.type == Material.BEDROCK
     }
-
-    // ------------------------------------------------------------------------
-    /**
-     * Reference to WorldGuard.
-     */
-    protected WorldGuardPlugin _worldGuard;
-} // class SafeCrystals
+}
