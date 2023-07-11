@@ -1,30 +1,29 @@
-package nu.nerd.safecrystals;
+package nu.nerd.safecrystals
 
-import org.bukkit.Location;
+import org.bukkit.Location
 
-// ----------------------------------------------------------------------------
 /**
  * Configuration wrapper.
  */
-public class Configuration {
+class Configuration {
     /**
      * Radius around END_PORTAL_LOCATION where broken ender crystals don't drop.
      */
-    public double END_PORTAL_RADIUS;
+    var END_PORTAL_RADIUS: Double = 0.0
 
     /**
      * Location of the (assumed only) end-side end portal.
      */
-    public Location END_PORTAL_LOCATION;
+    var END_PORTAL_LOCATION: Location? = null
 
     // ------------------------------------------------------------------------
     /**
      * Reload the configuration.
      */
-    public void reload() {
-        SafeCrystals.PLUGIN.reloadConfig();
+    fun reload() {
+        SafeCrystals.PLUGIN.reloadConfig()
 
-        END_PORTAL_RADIUS = SafeCrystals.PLUGIN.getConfig().getDouble("end-portal.radius");
-        END_PORTAL_LOCATION = (Location) SafeCrystals.PLUGIN.getConfig().get("end-portal.location");
+        END_PORTAL_RADIUS = SafeCrystals.PLUGIN.config.getDouble("end-portal.radius")
+        END_PORTAL_LOCATION = SafeCrystals.PLUGIN.config.get("end-portal.location") as Location?
     }
-} // class Configuration
+}
